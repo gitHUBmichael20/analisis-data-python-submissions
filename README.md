@@ -16,14 +16,16 @@ Project ini menganalisis dataset Bike Sharing untuk memahami pola penggunaan sep
 
 ## Struktur Project
 ```
-dashboard/
-│   ├── dashboard.py
-data/
-│   ├── day.csv
-│   ├── hour.csv
-notebook.ipynb
-README.md
-requirements.txt
+submission
+├───dashboard
+| ├───dashboard.py
+├───data
+| ├───data_1.csv
+| └───data_2.csv
+├───notebook.ipynb
+├───README.md
+└───requirements.txt
+└───url.txt
 
 ```
 
