@@ -7,7 +7,7 @@ Project ini menganalisis dataset Bike Sharing untuk memahami pola penggunaan sep
 1. Pastikan Python sudah terinstall di sistem anda
 2. Install dependencies yang diperlukan:
    ```bash
-   pip install -r requirement.txt
+   pip install -r requirements.txt
    ```
 3. Jalankan dashboard:
    ```bash
