@@ -6,7 +6,7 @@ import numpy as np
 
 # Set page configuration
 st.set_page_config(
-    page_title="Bike Sharing Analysis",
+    page_title="Bike Sharing Analysis Dashboard",
     page_icon="🚲",
     layout="wide"
 )
@@ -44,147 +44,257 @@ def load_data():
 # Load data
 day_df, hour_df = load_data()
 
-# 2. Exploratory Data Analysis
-def calculate_summary_stats(df):
-    """Calculate key statistics from the data"""
-    stats = {
-        'total_rentals': df['cnt'].sum(),
-        'avg_daily_rentals': df['cnt'].mean(),
-        'max_rentals': df['cnt'].max(),
-        'min_rentals': df['cnt'].min(),
-        'casual_ratio': df['casual'].sum() / df['cnt'].sum(),
-        'registered_ratio': df['registered'].sum() / df['cnt'].sum()
+# 2. Exploratory Data Analysis Functions
+def analyze_temporal_patterns(df):
+    """Analyze temporal patterns of bike rentals"""
+    # Hourly analysis
+    hourly_usage = df.groupby('hr')['cnt'].mean()
+    peak_hours = hourly_usage.nlargest(3)
+    
+    # Daily analysis
+    daily_usage = df.groupby('weekday')['cnt'].mean()
+    peak_days = daily_usage.nlargest(3)
+    
+    return {
+        'peak_hours': peak_hours,
+        'peak_days': peak_days,
+        'avg_hourly_usage': hourly_usage.mean(),
+        'total_rentals': df['cnt'].sum()
     }
-    return stats
 
-# 3. Data Visualization Functions
-def create_rental_trend(df):
-    """Create time series plot of rental trends"""
+def analyze_weather_impact(df):
+    """Analyze the impact of weather on bike rentals"""
+    # Weather situation analysis
+    weather_usage = df.groupby('weathersit')['cnt'].agg(['mean', 'count'])
+    
+    # Temperature correlation
+    temp_correlation = df['temp'].corr(df['cnt'])
+    
+    # Rental reduction in bad weather
+    baseline_rentals = df[df['weathersit'] == 'Clear']['cnt'].mean()
+    weather_impact = {}
+    for weather in df['weathersit'].unique():
+        if weather != 'Clear':
+            weather_rentals = df[df['weathersit'] == weather]['cnt'].mean()
+            weather_impact[weather] = (baseline_rentals - weather_rentals) / baseline_rentals * 100
+    
+    return {
+        'weather_usage': weather_usage,
+        'temp_correlation': temp_correlation,
+        'rental_reduction': weather_impact
+    }
+
+# 3. Additional Analysis Functions
+def analyze_seasonal_yearly_trends(df):
+    """Analyze seasonal and yearly trends"""
+    seasonal_yearly_rental = df.groupby(['yr', 'season'])['cnt'].mean().unstack()
+    return seasonal_yearly_rental
+
+def analyze_holiday_impact(df):
+    """Analyze the impact of holidays on rentals"""
+    holiday_rental = df.groupby('holiday')['cnt'].agg(['mean', 'median', 'count'])
+    return holiday_rental
+
+def analyze_weather_comfort(df):
+    """Analyze weather comfort factors"""
+    comfort_factors = ['temp', 'atemp', 'hum', 'windspeed', 'cnt']
+    correlation_matrix = df[comfort_factors].corr()
+    return correlation_matrix
+
+def analyze_user_characteristics(df):
+    """Analyze user characteristics across time"""
+    hourly_user_dist = df.groupby('hr')[['casual', 'registered']].mean()
+    return hourly_user_dist
+
+# 4. Visualization Functions
+def create_peak_hours_visualization(hourly_usage):
+    """Create visualization of peak hours"""
     fig, ax = plt.subplots(figsize=(12, 6))
-    df.groupby('dteday')['cnt'].mean().plot(ax=ax)
-    ax.set_title('Rental Trends Over Time')
-    ax.set_xlabel('Date')
-    ax.set_ylabel('Number of Rentals')
-    return fig
-
-def create_season_analysis(df):
-    """Create seasonal analysis visualization"""
-    fig, ax = plt.subplots(figsize=(10, 6))
-    sns.boxplot(data=df, x='season', y='cnt', ax=ax)
-    ax.set_title('Rental Distribution by Season')
-    ax.set_xlabel('Season')
-    ax.set_ylabel('Number of Rentals')
-    plt.xticks(rotation=45)
-    return fig
-
-def create_weather_impact(df):
-    """Create weather impact visualization"""
-    fig, ax = plt.subplots(figsize=(10, 6))
-    sns.barplot(data=df, x='weathersit', y='cnt', ax=ax)
-    ax.set_title('Average Rentals by Weather Condition')
-    ax.set_xlabel('Weather Condition')
-    ax.set_ylabel('Average Number of Rentals')
-    plt.xticks(rotation=45)
-    return fig
-
-def create_hourly_pattern(df):
-    """Create hourly pattern visualization"""
-    hourly_avg = df.groupby('hr')['cnt'].mean()
-    fig, ax = plt.subplots(figsize=(12, 6))
-    hourly_avg.plot(kind='line', marker='o', ax=ax)
-    ax.set_title('Average Rentals by Hour')
+    hourly_usage.plot(kind='line', marker='o', ax=ax)
+    ax.set_title('Average Bike Rentals by Hour of Day')
     ax.set_xlabel('Hour of Day')
     ax.set_ylabel('Average Number of Rentals')
     return fig
 
-# 4. Dashboard Layout
-st.title('🚲 Bike Sharing Analysis Dashboard')
-st.write('Analysis of bike sharing patterns based on historical data')
+def create_weather_impact_visualization(df):
+    """Create visualization of weather impact"""
+    fig, ax = plt.subplots(figsize=(10, 6))
+    sns.boxplot(data=df, x='weathersit', y='cnt', ax=ax)
+    ax.set_title('Bike Rentals by Weather Situation')
+    ax.set_xlabel('Weather Condition')
+    ax.set_ylabel('Number of Rentals')
+    plt.xticks(rotation=45)
+    return fig
 
-# Sidebar filters
-st.sidebar.title('📊 Analysis Options')
-analysis_type = st.sidebar.selectbox(
-    'Select Analysis View',
-    ['Overview', 'Temporal Analysis', 'Weather Impact', 'User Patterns']
+# 5. Dashboard Layout
+st.title('🚲 Comprehensive Bike Sharing Analysis')
+
+# Sidebar for Business Questions
+st.sidebar.title('🎯 Business Insights')
+business_question = st.sidebar.selectbox(
+    'Select Business Insight',
+    [
+        'Q1: Optimizing Rental Capacity',
+        'Q2: Weather Impact Mitigation',
+        'Q3: Seasonal and Yearly Trends',
+        'Q4: Holiday Impact Analysis',
+        'Q5: Weather Comfort Factors',
+        'Q6: User Characteristics'
+    ]
 )
 
-# Main content based on selected analysis
-if analysis_type == 'Overview':
-    # Summary statistics
-    st.header('📈 Key Metrics')
-    stats = calculate_summary_stats(day_df)
+# Main Dashboard Content
+if business_question == 'Q1: Optimizing Rental Capacity':
+    st.header('📊 Rental Capacity Optimization Analysis')
     
+    # Temporal Pattern Analysis
+    temporal_analysis = analyze_temporal_patterns(hour_df)
+    
+    # Key Metrics
     col1, col2, col3 = st.columns(3)
     with col1:
-        st.metric('Total Rentals', f"{stats['total_rentals']:,.0f}")
+        st.metric('Total Rentals', f"{temporal_analysis['total_rentals']:,}")
     with col2:
-        st.metric('Average Daily Rentals', f"{stats['avg_daily_rentals']:,.0f}")
+        st.metric('Average Hourly Rentals', f"{temporal_analysis['avg_hourly_usage']:.0f}")
     with col3:
-        st.metric('Maximum Daily Rentals', f"{stats['max_rentals']:,.0f}")
+        st.metric('Peak Hour Rental', f"{temporal_analysis['peak_hours'].max():.0f}")
     
-    # Overall trend
-    st.subheader('📊 Overall Rental Trends')
-    st.pyplot(create_rental_trend(day_df))
+    # Peak Hours Visualization
+    st.subheader('🕒 Peak Rental Hours')
+    st.pyplot(create_peak_hours_visualization(hour_df.groupby('hr')['cnt'].mean()))
+    
+    # Detailed Insights
+    st.subheader('🔍 Key Insights')
+    st.markdown(f"""
+    - **Top 3 Peak Hours:** 
+      {', '.join([f"{hour}:00" for hour in temporal_analysis['peak_hours'].index])}
+    - **Highest Hourly Average:** {temporal_analysis['peak_hours'].max():.0f} rentals
+    - **Recommended Capacity Allocation:** Focus on peak hours during workdays
+    """)
 
-elif analysis_type == 'Temporal Analysis':
-    st.header('⏰ Temporal Analysis')
+elif business_question == 'Q2: Weather Impact Mitigation':
+    st.header('🌦️ Weather Impact Analysis')
     
-    # Seasonal patterns
-    st.subheader('🌺 Seasonal Patterns')
-    st.pyplot(create_season_analysis(day_df))
+    # Weather Impact Analysis
+    weather_analysis = analyze_weather_impact(day_df)
     
-    # Hourly patterns
-    st.subheader('🕒 Hourly Patterns')
-    st.pyplot(create_hourly_pattern(hour_df))
+    # Key Metrics
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric('Temperature Correlation', f"{weather_analysis['temp_correlation']:.2f}")
+    with col2:
+        st.metric('Clear Weather Rentals', f"{weather_analysis['weather_usage'].loc['Clear', 'mean']:.0f}")
+    with col3:
+        st.metric('Worst Weather Rental Drop', f"{max(weather_analysis['rental_reduction'].values()):.1f}%")
+    
+    # Weather Impact Visualization
+    st.subheader('🌈 Rental Performance by Weather')
+    st.pyplot(create_weather_impact_visualization(day_df))
+    
+    # Detailed Insights
+    st.subheader('🔍 Weather Mitigation Strategies')
+    st.markdown("""
+    - **Rental Reduction by Weather:**
+    {}
+    - **Recommendation:** Develop targeted marketing and operational strategies for different weather conditions
+    """.format(
+        '\n'.join([f"  - {weather}: {reduction:.1f}% decrease" 
+                   for weather, reduction in weather_analysis['rental_reduction'].items()])
+    ))
 
-elif analysis_type == 'Weather Impact':
-    st.header('🌤️ Weather Impact Analysis')
+elif business_question == 'Q3: Seasonal and Yearly Trends':
+    st.header('🍂 Seasonal and Yearly Trends Analysis')
     
-    # Weather impact
-    st.pyplot(create_weather_impact(day_df))
+    # Seasonal Yearly Analysis
+    seasonal_trends = analyze_seasonal_yearly_trends(day_df)
     
-    # Temperature correlation
-    st.subheader('🌡️ Temperature Impact')
+    # Visualization
+    fig, ax = plt.subplots(figsize=(12, 6))
+    seasonal_trends.plot(kind='bar', ax=ax)
+    ax.set_title('Average Bike Rentals by Season and Year')
+    ax.set_xlabel('Year')
+    ax.set_ylabel('Average Number of Rentals')
+    ax.legend(title='Season')
+    
+    st.pyplot(fig)
+    
+    # Insights
+    st.subheader('🔍 Key Insights')
+    st.markdown("""
+    - Analyze rental patterns across different seasons
+    - Identify potential seasonal variations
+    - Compare rental trends between years
+    """)
+
+elif business_question == 'Q4: Holiday Impact Analysis':
+    st.header('🏖️ Holiday Impact on Bike Rentals')
+    
+    # Holiday Impact Analysis
+    holiday_analysis = analyze_holiday_impact(day_df)
+    
+    # Visualization
     fig, ax = plt.subplots(figsize=(10, 6))
-    sns.scatterplot(data=day_df, x='temp', y='cnt', hue='season', ax=ax)
-    ax.set_title('Rental Count vs Temperature by Season')
+    holiday_analysis['mean'].plot(kind='bar', ax=ax)
+    ax.set_title('Average Bike Rentals: Holiday vs Non-Holiday')
+    ax.set_xlabel('Holiday Status')
+    ax.set_ylabel('Average Number of Rentals')
+    
     st.pyplot(fig)
+    
+    # Insights
+    st.subheader('🔍 Key Insights')
+    st.markdown(f"""
+    - **Holiday Rentals:** {holiday_analysis.loc[1, 'mean']:.0f}
+    - **Non-Holiday Rentals:** {holiday_analysis.loc[0, 'mean']:.0f}
+    - **Difference:** {abs(holiday_analysis.loc[1, 'mean'] - holiday_analysis.loc[0, 'mean']):.0f} rentals
+    - Understand rental behavior during holidays
+    """)
 
-elif analysis_type == 'User Patterns':
-    st.header('👥 User Pattern Analysis')
+elif business_question == 'Q5: Weather Comfort Factors':
+    st.header('🌡️ Weather Comfort and Rental Correlation')
     
-    # Calculate user statistics for this section
-    user_stats = calculate_summary_stats(day_df)
+    # Weather Comfort Analysis
+    comfort_correlation = analyze_weather_comfort(day_df)
     
-    # User type distribution
-    st.subheader('📊 Distribution of User Types')
-    user_dist = pd.DataFrame({
-        'User Type': ['Casual', 'Registered'],
-        'Percentage': [user_stats['casual_ratio'] * 100, user_stats['registered_ratio'] * 100]
-    })
+    # Visualization
+    fig, ax = plt.subplots(figsize=(10, 8))
+    sns.heatmap(comfort_correlation, annot=True, cmap='coolwarm', center=0, ax=ax)
+    ax.set_title('Correlation between Weather Factors and Rentals')
     
-    fig, ax = plt.subplots(figsize=(8, 8))
-    plt.pie(user_dist['Percentage'], 
-            labels=user_dist['User Type'], 
-            autopct='%1.1f%%',
-            colors=['lightblue', 'lightcoral'])
-    plt.title('Distribution of User Types')
     st.pyplot(fig)
     
-    # User patterns by day type
-    st.subheader('📅 Usage Patterns by Day Type')
-    workday_avg = day_df.groupby('workingday')[['casual', 'registered']].mean()
+    # Insights
+    st.subheader('🔍 Key Insights')
+    st.markdown("""
+    - Analyze correlations between weather factors
+    - Identify which factors most impact bike rentals
+    - Use insights for demand prediction
+    """)
+
+elif business_question == 'Q6: User Characteristics':
+    st.header('👥 User Type Characteristics')
     
-    # Create a more informative bar chart
-    fig, ax = plt.subplots(figsize=(10, 6))
-    workday_avg.plot(kind='bar', ax=ax)
-    plt.title('Average Users by Day Type')
-    plt.xlabel('Day Type (0 = Weekend/Holiday, 1 = Workday)')
-    plt.ylabel('Average Number of Users')
-    plt.legend(title='User Type')
-    plt.xticks(rotation=0)
+    # User Characteristics Analysis
+    user_dist = analyze_user_characteristics(hour_df)
+    
+    # Visualization
+    fig, ax = plt.subplots(figsize=(12, 6))
+    user_dist.plot(kind='bar', stacked=True, ax=ax)
+    ax.set_title('Casual vs Registered Users Across Hours')
+    ax.set_xlabel('Hour of Day')
+    ax.set_ylabel('Average Number of Users')
+    ax.legend(title='User Type')
+    
     st.pyplot(fig)
+    
+    # Insights
+    st.subheader('🔍 Key Insights')
+    st.markdown("""
+    - Analyze user type distribution throughout the day
+    - Identify peak times for casual and registered users
+    - Develop targeted strategies for different user types
+    """)
 
 # Footer
 st.markdown('---')
-st.markdown('*Data source: Bike Sharing Dataset*')
+st.markdown('*Data-driven insights for bike sharing optimization*')
