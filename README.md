@@ -11,7 +11,7 @@ Project ini menganalisis dataset Bike Sharing untuk memahami pola penggunaan sep
    ```
 3. Jalankan dashboard:
    ```bash
-   streamlit run dashboard.py
+   streamlit run dashboard/dashboard.py
    ```
 
 ## Struktur Project
