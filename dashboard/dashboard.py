@@ -4,259 +4,187 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import numpy as np
 
-# Caching untuk mempercepat loading data
+# Set page configuration
+st.set_page_config(
+    page_title="Bike Sharing Analysis",
+    page_icon="🚲",
+    layout="wide"
+)
+
+# 1. Data Wrangling
 @st.cache_data
 def load_data():
+    """Load and prepare the datasets"""
+    # Load datasets
     day_df = pd.read_csv('data/day.csv')
     hour_df = pd.read_csv('data/hour.csv')
+    
+    # Data cleaning and preparation
+    # Convert dates to datetime
+    day_df['dteday'] = pd.to_datetime(day_df['dteday'])
+    hour_df['dteday'] = pd.to_datetime(hour_df['dteday'])
+    
+    # Create meaningful category labels
+    season_labels = {1: 'Spring', 2: 'Summer', 3: 'Fall', 4: 'Winter'}
+    weather_labels = {
+        1: 'Clear',
+        2: 'Mist/Cloudy',
+        3: 'Light Rain/Snow',
+        4: 'Heavy Rain/Snow'
+    }
+    
+    # Apply labels
+    day_df['season'] = day_df['season'].map(season_labels)
+    hour_df['season'] = hour_df['season'].map(season_labels)
+    day_df['weathersit'] = day_df['weathersit'].map(weather_labels)
+    hour_df['weathersit'] = hour_df['weathersit'].map(weather_labels)
+    
     return day_df, hour_df
 
-# Load datasets
+# Load data
 day_df, hour_df = load_data()
 
-# Show All Data button di bagian atas sidebar
-st.sidebar.title("🔍 Filter Data")
-show_all = st.sidebar.button("👁️ Tampilkan Semua Data", help="Klik untuk melihat visualisasi dari seluruh dataset")
+# 2. Exploratory Data Analysis
+def calculate_summary_stats(df):
+    """Calculate key statistics from the data"""
+    stats = {
+        'total_rentals': df['cnt'].sum(),
+        'avg_daily_rentals': df['cnt'].mean(),
+        'max_rentals': df['cnt'].max(),
+        'min_rentals': df['cnt'].min(),
+        'casual_ratio': df['casual'].sum() / df['cnt'].sum(),
+        'registered_ratio': df['registered'].sum() / df['cnt'].sum()
+    }
+    return stats
 
-# Filter temperatur dengan dropdown (termasuk opsi "Semua")
-temp_ranges = [
-    "Semua Temperatur",
-    "Sangat Dingin (0.0-0.2)",
-    "Dingin (0.2-0.4)",
-    "Normal (0.4-0.6)",
-    "Hangat (0.6-0.8)",
-    "Panas (0.8-1.0)"
-]
-selected_temp = st.sidebar.selectbox("Temperatur", options=temp_ranges, disabled=show_all)
-temp_range_map = {
-    "Semua Temperatur": (0.0, 1.0),
-    "Sangat Dingin (0.0-0.2)": (0.0, 0.2),
-    "Dingin (0.2-0.4)": (0.2, 0.4),
-    "Normal (0.4-0.6)": (0.4, 0.6),
-    "Hangat (0.6-0.8)": (0.6, 0.8),
-    "Panas (0.8-1.0)": (0.8, 1.0)
-}
-selected_temp_range = temp_range_map[selected_temp]
+# 3. Data Visualization Functions
+def create_rental_trend(df):
+    """Create time series plot of rental trends"""
+    fig, ax = plt.subplots(figsize=(12, 6))
+    df.groupby('dteday')['cnt'].mean().plot(ax=ax)
+    ax.set_title('Rental Trends Over Time')
+    ax.set_xlabel('Date')
+    ax.set_ylabel('Number of Rentals')
+    return fig
 
-# Filter kondisi cuaca dengan dropdown (termasuk opsi "Semua")
-weather_options = {
-    0: "Semua Cuaca",
-    1: "Clear/Partly Cloudy",
-    2: "Misty/Cloudy",
-    3: "Light Rain/Snow",
-    4: "Heavy Rain/Snow"
-}
-selected_weather = st.sidebar.selectbox(
-    "Cuaca",
-    options=list(weather_options.keys()),
-    format_func=lambda x: weather_options[x],
-    disabled=show_all
+def create_season_analysis(df):
+    """Create seasonal analysis visualization"""
+    fig, ax = plt.subplots(figsize=(10, 6))
+    sns.boxplot(data=df, x='season', y='cnt', ax=ax)
+    ax.set_title('Rental Distribution by Season')
+    ax.set_xlabel('Season')
+    ax.set_ylabel('Number of Rentals')
+    plt.xticks(rotation=45)
+    return fig
+
+def create_weather_impact(df):
+    """Create weather impact visualization"""
+    fig, ax = plt.subplots(figsize=(10, 6))
+    sns.barplot(data=df, x='weathersit', y='cnt', ax=ax)
+    ax.set_title('Average Rentals by Weather Condition')
+    ax.set_xlabel('Weather Condition')
+    ax.set_ylabel('Average Number of Rentals')
+    plt.xticks(rotation=45)
+    return fig
+
+def create_hourly_pattern(df):
+    """Create hourly pattern visualization"""
+    hourly_avg = df.groupby('hr')['cnt'].mean()
+    fig, ax = plt.subplots(figsize=(12, 6))
+    hourly_avg.plot(kind='line', marker='o', ax=ax)
+    ax.set_title('Average Rentals by Hour')
+    ax.set_xlabel('Hour of Day')
+    ax.set_ylabel('Average Number of Rentals')
+    return fig
+
+# 4. Dashboard Layout
+st.title('🚲 Bike Sharing Analysis Dashboard')
+st.write('Analysis of bike sharing patterns based on historical data')
+
+# Sidebar filters
+st.sidebar.title('📊 Analysis Options')
+analysis_type = st.sidebar.selectbox(
+    'Select Analysis View',
+    ['Overview', 'Temporal Analysis', 'Weather Impact', 'User Patterns']
 )
 
-# Filter hari kerja vs akhir pekan dengan dropdown (termasuk opsi "Semua")
-workingday_options = {
-    -1: "Semua Tipe Hari",
-    0: "Akhir Pekan/Libur",
-    1: "Hari Kerja"
-}
-selected_workingday = st.sidebar.selectbox(
-    "Tipe Hari",
-    options=list(workingday_options.keys()),
-    format_func=lambda x: workingday_options[x],
-    disabled=show_all
-)
-
-# Filter jam dengan dropdown (termasuk opsi "Semua")
-hour_options = {-1: "Semua Jam"}
-hour_options.update({i: f"{i:02d}:00" for i in range(24)})
-selected_hour = st.sidebar.selectbox(
-    "Jam",
-    options=list(hour_options.keys()),
-    format_func=lambda x: hour_options[x],
-    disabled=show_all
-)
-
-# Filter musim dengan dropdown (termasuk opsi "Semua")
-season_options = {
-    0: "Semua Musim",
-    1: "Musim Semi",
-    2: "Musim Panas",
-    3: "Musim Gugur",
-    4: "Musim Dingin"
-}
-selected_season = st.sidebar.selectbox(
-    "Musim",
-    options=list(season_options.keys()),
-    format_func=lambda x: season_options[x],
-    disabled=show_all
-)
-
-# Dashboard Title
-st.title('📊 Analisis Data Bike Sharing')
-st.write("Dashboard ini memberikan wawasan tentang pola penggunaan sepeda berdasarkan data historis.")
-
-# Fungsi untuk memfilter data berdasarkan kondisi
-def filter_data(df):
-    if show_all:
-        return df
+# Main content based on selected analysis
+if analysis_type == 'Overview':
+    # Summary statistics
+    st.header('📈 Key Metrics')
+    stats = calculate_summary_stats(day_df)
     
-    filtered = df.copy()
-    # Filter temperatur
-    filtered = filtered[
-        (filtered['temp'] >= selected_temp_range[0]) &
-        (filtered['temp'] <= selected_temp_range[1])
-    ]
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric('Total Rentals', f"{stats['total_rentals']:,.0f}")
+    with col2:
+        st.metric('Average Daily Rentals', f"{stats['avg_daily_rentals']:,.0f}")
+    with col3:
+        st.metric('Maximum Daily Rentals', f"{stats['max_rentals']:,.0f}")
     
-    # Filter cuaca
-    if selected_weather != 0:
-        filtered = filtered[filtered['weathersit'] == selected_weather]
+    # Overall trend
+    st.subheader('📊 Overall Rental Trends')
+    st.pyplot(create_rental_trend(day_df))
+
+elif analysis_type == 'Temporal Analysis':
+    st.header('⏰ Temporal Analysis')
     
-    # Filter tipe hari
-    if selected_workingday != -1:
-        filtered = filtered[filtered['workingday'] == selected_workingday]
+    # Seasonal patterns
+    st.subheader('🌺 Seasonal Patterns')
+    st.pyplot(create_season_analysis(day_df))
     
-    # Filter musim
-    if selected_season != 0:
-        filtered = filtered[filtered['season'] == selected_season]
+    # Hourly patterns
+    st.subheader('🕒 Hourly Patterns')
+    st.pyplot(create_hourly_pattern(hour_df))
+
+elif analysis_type == 'Weather Impact':
+    st.header('🌤️ Weather Impact Analysis')
     
-    return filtered
-
-# Filter hour data dengan tambahan filter jam
-def filter_hour_data(df):
-    filtered = filter_data(df)
-    if selected_hour != -1 and not show_all:
-        filtered = filtered[filtered['hr'] == selected_hour]
-    return filtered
-
-# Apply filters
-filtered_day_df = filter_data(day_df)
-filtered_hour_df = filter_hour_data(hour_df)
-
-# Data Summary
-st.subheader("📜 Ringkasan Data")
-if show_all:
-    st.write(f"Total dataset terdiri dari **{len(day_df)} hari** dan **{len(hour_df)} jam** pencatatan.")
-else:
-    st.write(f"Data terfilter terdiri dari **{len(filtered_day_df)} hari** dan **{len(filtered_hour_df)} jam** pencatatan.")
-st.dataframe(filtered_day_df.head())
-
-# Analisis Data Harian
-st.header('📅 Analisis Data Harian')
-
-# 1. Tren Penggunaan Sepeda berdasarkan Musim
-st.subheader('📈 Tren Penggunaan Sepeda berdasarkan Musim')
-if selected_season == 0 or show_all:
-    seasonal_usage = filtered_day_df.groupby('season')['cnt'].mean()
+    # Weather impact
+    st.pyplot(create_weather_impact(day_df))
+    
+    # Temperature correlation
+    st.subheader('🌡️ Temperature Impact')
     fig, ax = plt.subplots(figsize=(10, 6))
-    sns.barplot(x=[season_options[s] for s in seasonal_usage.index], y=seasonal_usage.values, ax=ax)
-    title = 'Rata-rata Penggunaan Sepeda per Musim'
-else:
+    sns.scatterplot(data=day_df, x='temp', y='cnt', hue='season', ax=ax)
+    ax.set_title('Rental Count vs Temperature by Season')
+    st.pyplot(fig)
+
+elif analysis_type == 'User Patterns':
+    st.header('👥 User Pattern Analysis')
+    
+    # Calculate user statistics for this section
+    user_stats = calculate_summary_stats(day_df)
+    
+    # User type distribution
+    st.subheader('📊 Distribution of User Types')
+    user_dist = pd.DataFrame({
+        'User Type': ['Casual', 'Registered'],
+        'Percentage': [user_stats['casual_ratio'] * 100, user_stats['registered_ratio'] * 100]
+    })
+    
+    fig, ax = plt.subplots(figsize=(8, 8))
+    plt.pie(user_dist['Percentage'], 
+            labels=user_dist['User Type'], 
+            autopct='%1.1f%%',
+            colors=['lightblue', 'lightcoral'])
+    plt.title('Distribution of User Types')
+    st.pyplot(fig)
+    
+    # User patterns by day type
+    st.subheader('📅 Usage Patterns by Day Type')
+    workday_avg = day_df.groupby('workingday')[['casual', 'registered']].mean()
+    
+    # Create a more informative bar chart
     fig, ax = plt.subplots(figsize=(10, 6))
-    sns.barplot(x=[season_options[selected_season]], y=[filtered_day_df['cnt'].mean()], ax=ax)
-    title = f'Rata-rata Penggunaan Sepeda - {season_options[selected_season]}'
-ax.set_title(title)
-ax.set_xlabel('Musim')
-ax.set_ylabel('Rata-rata Jumlah Peminjaman')
-plt.xticks(rotation=45)
-st.pyplot(fig)
+    workday_avg.plot(kind='bar', ax=ax)
+    plt.title('Average Users by Day Type')
+    plt.xlabel('Day Type (0 = Weekend/Holiday, 1 = Workday)')
+    plt.ylabel('Average Number of Users')
+    plt.legend(title='User Type')
+    plt.xticks(rotation=0)
+    st.pyplot(fig)
 
-# 2. Pola Penggunaan Sepeda berdasarkan Cuaca
-st.subheader('🕒 Pola Penggunaan Sepeda berdasarkan Cuaca')
-if selected_weather == 0 or show_all:
-    weather_usage = filtered_hour_df.groupby('weathersit')['cnt'].mean()
-    fig, ax = plt.subplots(figsize=(10, 6))
-    sns.barplot(x=[weather_options[w] for w in weather_usage.index if w in weather_options], 
-                y=weather_usage.values,
-                ax=ax,
-                palette="coolwarm")
-    title = 'Rata-rata Penggunaan Sepeda berdasarkan Cuaca'
-else:
-    fig, ax = plt.subplots(figsize=(10, 6))
-    sns.barplot(x=[weather_options[selected_weather]], 
-                y=[filtered_hour_df['cnt'].mean()], 
-                ax=ax, 
-                palette="coolwarm")
-    title = f'Penggunaan Sepeda - {weather_options[selected_weather]}'
-ax.set_title(title)
-ax.set_xlabel('Kondisi Cuaca')
-ax.set_ylabel('Jumlah Peminjaman')
-plt.xticks(rotation=45)
-st.pyplot(fig)
-
-# 3. Pengaruh Suhu terhadap Jumlah Peminjaman
-st.subheader('🌡️ Pengaruh Suhu terhadap Penggunaan Sepeda')
-fig, ax = plt.subplots(figsize=(10, 6))
-if show_all or selected_season == 0:
-    sns.scatterplot(data=filtered_day_df, x='temp', y='cnt', 
-                    hue='season', palette='deep',
-                    alpha=0.6, ax=ax)
-    ax.legend(title='Musim', labels=[season_options[i] for i in range(1, 5)])
-else:
-    sns.scatterplot(data=filtered_day_df, x='temp', y='cnt', 
-                    alpha=0.6, ax=ax, color='blue')
-ax.set_title('Hubungan Suhu dengan Jumlah Peminjaman Sepeda')
-ax.set_xlabel('Suhu (normalized)')
-ax.set_ylabel('Jumlah Peminjaman')
-st.pyplot(fig)
-
-# 4. Perbandingan Pengguna Casual vs Registered
-st.subheader('👥 Perbandingan Pengguna Casual vs Registered')
-user_means = filtered_day_df[['casual', 'registered']].mean()
-fig, ax = plt.subplots(figsize=(8, 6))
-wedges, texts, autotexts = ax.pie(user_means, 
-                                 labels=['Casual', 'Registered'], 
-                                 autopct='%1.1f%%', 
-                                 colors=['orange', 'blue'], 
-                                 startangle=90,
-                                 wedgeprops=dict(width=0.4))
-ax.set_title('Proporsi Tipe Pengguna')
-st.pyplot(fig)
-
-# Kesimpulan Dinamis
-st.header('📌 Kesimpulan Analisis')
-total_rentals = filtered_day_df['cnt'].sum() if not filtered_day_df.empty else 0
-avg_rentals = filtered_day_df['cnt'].mean() if not filtered_day_df.empty else 0
-most_users = 'registered' if user_means['registered'] > user_means['casual'] else 'casual'
-user_percentage = user_means[most_users] / user_means.sum() * 100 if user_means.sum() > 0 else 0
-
-if show_all:
-    st.write(f"""
-    **Analisis Keseluruhan Dataset:**
-
-    1. 📊 Total peminjaman sepeda: **{total_rentals:,.0f}** dengan rata-rata harian **{avg_rentals:.1f}** peminjaman
-    2. 🌡️ Mencakup semua rentang temperatur
-    3. 🌦️ Mencakup semua kondisi cuaca
-    4. 📅 Mencakup semua tipe hari
-    5. 🌺 Mencakup semua musim
-    6. 👥 {'Mayoritas pengguna adalah ' + most_users + f' users dengan proporsi {user_percentage:.1f}%'}
-    """)
-else:
-    filters_used = []
-    if selected_temp != "Semua Temperatur":
-        filters_used.append(f"🌡️ Temperature: **{selected_temp}**")
-    if selected_weather != 0:
-        filters_used.append(f"🌦️ Cuaca: **{weather_options[selected_weather]}**")
-    if selected_workingday != -1:
-        filters_used.append(f"📅 Tipe Hari: **{workingday_options[selected_workingday]}**")
-    if selected_hour != -1:
-        filters_used.append(f"🕒 Jam: **{hour_options[selected_hour]}**")
-    if selected_season != 0:
-        filters_used.append(f"🌺 Musim: **{season_options[selected_season]}**")
-    
-    st.write(f"""
-    **Berdasarkan filter yang dipilih:**
-
-    1. 📊 Total peminjaman sepeda: **{total_rentals:,.0f}** dengan rata-rata harian **{avg_rentals:.1f}** peminjaman
-    
-    2. Filter yang aktif:
-    """)
-    
-    if filters_used:
-        for filter_info in filters_used:
-            st.write(f"   • {filter_info}")
-    else:
-        st.write("   • Tidak ada filter aktif")
-    
-    st.write(f"""
-    3. 👥 {'Mayoritas pengguna adalah ' + most_users + f' users dengan proporsi {user_percentage:.1f}%' if user_percentage > 0 else 'Tidak ada data pengguna untuk filter yang dipilih'}
-    """)
+# Footer
+st.markdown('---')
+st.markdown('*Data source: Bike Sharing Dataset*')
