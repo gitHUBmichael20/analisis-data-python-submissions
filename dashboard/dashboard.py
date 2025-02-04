@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
-import numpy as np
 
 # Set page configuration
 st.set_page_config(
@@ -84,7 +83,6 @@ def analyze_weather_impact(df):
         'rental_reduction': weather_impact
     }
 
-# 3. Additional Analysis Functions
 def analyze_seasonal_yearly_trends(df):
     """Analyze seasonal and yearly trends"""
     seasonal_yearly_rental = df.groupby(['yr', 'season'])['cnt'].mean().unstack()
@@ -106,7 +104,7 @@ def analyze_user_characteristics(df):
     hourly_user_dist = df.groupby('hr')[['casual', 'registered']].mean()
     return hourly_user_dist
 
-# 4. Visualization Functions
+# 3. Visualization Functions
 def create_peak_hours_visualization(hourly_usage):
     """Create visualization of peak hours"""
     fig, ax = plt.subplots(figsize=(12, 6))
@@ -126,10 +124,10 @@ def create_weather_impact_visualization(df):
     plt.xticks(rotation=45)
     return fig
 
-# 5. Dashboard Layout
+# 4. Dashboard Layout
 st.title('🚲 Comprehensive Bike Sharing Analysis')
 
-# Sidebar for Business Questions
+# Sidebar for Business Questions and Filters
 st.sidebar.title('🎯 Business Insights')
 business_question = st.sidebar.selectbox(
     'Select Business Insight',
@@ -143,12 +141,60 @@ business_question = st.sidebar.selectbox(
     ]
 )
 
+# Add interactive filters in the sidebar
+st.sidebar.title('🔍 Filters')
+
+# Date range filter
+date_range = st.sidebar.date_input(
+    "Select Date Range",
+    [day_df['dteday'].min(), day_df['dteday'].max()]
+)
+
+# Season filter
+selected_season = st.sidebar.multiselect(
+    "Select Season",
+    options=day_df['season'].unique(),
+    default=day_df['season'].unique()
+)
+
+# Weather filter
+selected_weather = st.sidebar.multiselect(
+    "Select Weather Condition",
+    options=day_df['weathersit'].unique(),
+    default=day_df['weathersit'].unique()
+)
+
+# Hour filter (for hourly data)
+selected_hour = st.sidebar.slider(
+    "Select Hour of Day",
+    min_value=0,
+    max_value=23,
+    value=(8, 17)  # Default to working hours
+)
+
+# Apply filters to data
+filtered_day_df = day_df[
+    (day_df['dteday'] >= pd.to_datetime(date_range[0])) &
+    (day_df['dteday'] <= pd.to_datetime(date_range[1])) &
+    (day_df['season'].isin(selected_season)) &
+    (day_df['weathersit'].isin(selected_weather))
+]
+
+filtered_hour_df = hour_df[
+    (hour_df['dteday'] >= pd.to_datetime(date_range[0])) &
+    (hour_df['dteday'] <= pd.to_datetime(date_range[1])) &
+    (hour_df['season'].isin(selected_season)) &
+    (hour_df['weathersit'].isin(selected_weather)) &
+    (hour_df['hr'] >= selected_hour[0]) &
+    (hour_df['hr'] <= selected_hour[1])
+]
+
 # Main Dashboard Content
 if business_question == 'Q1: Optimizing Rental Capacity':
     st.header('📊 Rental Capacity Optimization Analysis')
     
     # Temporal Pattern Analysis
-    temporal_analysis = analyze_temporal_patterns(hour_df)
+    temporal_analysis = analyze_temporal_patterns(filtered_hour_df)
     
     # Key Metrics
     col1, col2, col3 = st.columns(3)
@@ -161,7 +207,7 @@ if business_question == 'Q1: Optimizing Rental Capacity':
     
     # Peak Hours Visualization
     st.subheader('🕒 Peak Rental Hours')
-    st.pyplot(create_peak_hours_visualization(hour_df.groupby('hr')['cnt'].mean()))
+    st.pyplot(create_peak_hours_visualization(filtered_hour_df.groupby('hr')['cnt'].mean()))
     
     # Detailed Insights
     st.subheader('🔍 Key Insights')
@@ -176,7 +222,7 @@ elif business_question == 'Q2: Weather Impact Mitigation':
     st.header('🌦️ Weather Impact Analysis')
     
     # Weather Impact Analysis
-    weather_analysis = analyze_weather_impact(day_df)
+    weather_analysis = analyze_weather_impact(filtered_day_df)
     
     # Key Metrics
     col1, col2, col3 = st.columns(3)
@@ -189,7 +235,7 @@ elif business_question == 'Q2: Weather Impact Mitigation':
     
     # Weather Impact Visualization
     st.subheader('🌈 Rental Performance by Weather')
-    st.pyplot(create_weather_impact_visualization(day_df))
+    st.pyplot(create_weather_impact_visualization(filtered_day_df))
     
     # Detailed Insights
     st.subheader('🔍 Weather Mitigation Strategies')
@@ -206,7 +252,7 @@ elif business_question == 'Q3: Seasonal and Yearly Trends':
     st.header('🍂 Seasonal and Yearly Trends Analysis')
     
     # Seasonal Yearly Analysis
-    seasonal_trends = analyze_seasonal_yearly_trends(day_df)
+    seasonal_trends = analyze_seasonal_yearly_trends(filtered_day_df)
     
     # Visualization
     fig, ax = plt.subplots(figsize=(12, 6))
@@ -230,7 +276,7 @@ elif business_question == 'Q4: Holiday Impact Analysis':
     st.header('🏖️ Holiday Impact on Bike Rentals')
     
     # Holiday Impact Analysis
-    holiday_analysis = analyze_holiday_impact(day_df)
+    holiday_analysis = analyze_holiday_impact(filtered_day_df)
     
     # Visualization
     fig, ax = plt.subplots(figsize=(10, 6))
@@ -254,7 +300,7 @@ elif business_question == 'Q5: Weather Comfort Factors':
     st.header('🌡️ Weather Comfort and Rental Correlation')
     
     # Weather Comfort Analysis
-    comfort_correlation = analyze_weather_comfort(day_df)
+    comfort_correlation = analyze_weather_comfort(filtered_day_df)
     
     # Visualization
     fig, ax = plt.subplots(figsize=(10, 8))
@@ -275,7 +321,7 @@ elif business_question == 'Q6: User Characteristics':
     st.header('👥 User Type Characteristics')
     
     # User Characteristics Analysis
-    user_dist = analyze_user_characteristics(hour_df)
+    user_dist = analyze_user_characteristics(filtered_hour_df)
     
     # Visualization
     fig, ax = plt.subplots(figsize=(12, 6))
