@@ -1,1 +1,1 @@
-https://submission-michael-analyst-data.streamlit.app/
+https://michael-data-analyst.streamlit.app/
